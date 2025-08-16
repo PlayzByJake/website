@@ -1,13 +1,221 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Login</title>
   <script src="script.js" defer></script>
   <link rel="stylesheet" type="text/css" href="login.css">
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      color: #fff;
+      position: relative;
+      z-index: 0;
+    }
+    #glitch-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      display: block;
+    }
+    .content {
+      position: relative;
+      z-index: 9;
+      text-align: center;
+      top: 35vh;
+      font-size: 2rem;
+      color: #fff;
+      pointer-events: auto;
+    }
+    /* Optional vignette: */
+    #vignette {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 60%);
+      z-index: 1;
+    }
+    /* Optional: style your input and button */
+    .login-form input, .login-form button {
+      font-size: 1.2rem;
+      padding: 0.5em;
+      margin: 0.5em;
+      border-radius: 5px;
+      border: none;
+    }
+  </style>
 </head>
-<body id="login">
-  <h2>Enter password to continue.</h2>
-  <input type="password" id="password" placeholder="Password">
-  <button onclick="handleLogin()">Login</button>
+<body id="loin">
+  <canvas id="glitch-bg"></canvas>
+  <div id="vignette"></div>
+  <div class="content">
+    <form class="login-form" onsubmit="handleLogin(); return false;">
+      <h2>Enter password to continue.</h2>
+      <input type="password" id="password" placeholder="Password">
+      <button type="submit">Login</button>
+    </form>
+  </div>
+  <canvas id="glitch-bg"></canvas>
+  <div id="vignette"></div>
+  <div class="content">
+  </div>
+  <script>
+    // Settings
+    const glitchColors = ['#2b4539', '#61dca3', '#61b3dc'];
+    const fontSize = 16;
+    const charWidth = 10;
+    const charHeight = 20;
+    const glitchSpeed = 50; // ms
+    const smooth = true;
+
+    const lettersAndSymbols = [
+      'A','B','C','D','E','F','G','H','I','J','K','L','M',
+      'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+      '!','@','#','$','&','*','(',')','-','_','+','=','/',
+      '[',']','{','}',';',':','<','>',',','0','1','2','3',
+      '4','5','6','7','8','9','cheeseburger','hi'
+    ];
+
+    function getRandomChar() {
+      return lettersAndSymbols[Math.floor(Math.random() * lettersAndSymbols.length)];
+    }
+
+    function getRandomColor() {
+      return glitchColors[Math.floor(Math.random() * glitchColors.length)];
+    }
+
+    function hexToRgb(hex) {
+      hex = hex.replace(/^#/, '');
+      if(hex.length === 3){
+        hex = hex.split('').map(x=>x+x).join('');
+      }
+      const num = parseInt(hex,16);
+      return {
+        r: (num >> 16) & 255,
+        g: (num >> 8) & 255,
+        b: num & 255
+      };
+    }
+
+    function interpolateColor(start, end, factor) {
+      const r = Math.round(start.r + (end.r - start.r) * factor);
+      const g = Math.round(start.g + (end.g - start.g) * factor);
+      const b = Math.round(start.b + (end.b - start.b) * factor);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    const canvas = document.getElementById('glitch-bg');
+    const ctx = canvas.getContext('2d');
+
+    let grid = { columns: 0, rows: 0 };
+    let letters = [];
+    let lastGlitchTime = Date.now();
+
+    function calculateGrid(width, height) {
+      return {
+        columns: Math.ceil(width / charWidth),
+        rows: Math.ceil(height / charHeight)
+      };
+    }
+
+    function initializeLetters(columns, rows) {
+      grid = { columns, rows };
+      const totalLetters = columns * rows;
+      letters = Array.from({ length: totalLetters }, () => ({
+        char: getRandomChar(),
+        color: getRandomColor(),
+        targetColor: getRandomColor(),
+        colorProgress: 1,
+      }));
+    }
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const { columns, rows } = calculateGrid(window.innerWidth, window.innerHeight);
+      initializeLetters(columns, rows);
+      drawLetters();
+    }
+
+    function drawLetters() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.font = `${fontSize}px monospace`;
+      ctx.textBaseline = 'top';
+
+      for(let index=0; index<letters.length; index++){
+        const letter = letters[index];
+        const x = (index % grid.columns) * charWidth;
+        const y = Math.floor(index / grid.columns) * charHeight;
+        ctx.fillStyle = letter.color;
+        ctx.fillText(letter.char, x, y);
+      }
+    }
+
+    function updateLetters() {
+      const updateCount = Math.max(1, Math.floor(letters.length * 0.05));
+      for(let i=0; i<updateCount; i++){
+        const idx = Math.floor(Math.random() * letters.length);
+        letters[idx].char = getRandomChar();
+        letters[idx].targetColor = getRandomColor();
+        if(!smooth) {
+          letters[idx].color = letters[idx].targetColor;
+          letters[idx].colorProgress = 1;
+        } else {
+          letters[idx].colorProgress = 0;
+        }
+      }
+    }
+
+    function handleSmoothTransitions() {
+      let needsRedraw = false;
+      for(let letter of letters){
+        if(letter.colorProgress < 1){
+          letter.colorProgress += 0.05;
+          if(letter.colorProgress > 1) letter.colorProgress = 1;
+          const startRgb = hexToRgb(letter.color);
+          const endRgb = hexToRgb(letter.targetColor);
+          letter.color = interpolateColor(startRgb, endRgb, letter.colorProgress);
+          needsRedraw = true;
+        }
+      }
+      if(needsRedraw) drawLetters();
+    }
+
+    function animate() {
+      const now = Date.now();
+      if(now - lastGlitchTime >= glitchSpeed){
+        updateLetters();
+        drawLetters();
+        lastGlitchTime = now;
+      }
+      if(smooth) handleSmoothTransitions();
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Init
+    resizeCanvas();
+    animate();
+
+  </script>
 </body>
 </html>
